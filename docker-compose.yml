@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  vault:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vault_server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - VAULT_HOST=0.0.0.0
+      - VAULT_PORT=8000
+      - VAULT_BASE_STORAGE_PATH=/app/storage
+      - VAULT_DEFAULT_REPLICATION_FACTOR=3
+      - VAULT_DEFAULT_WRITE_QUORUM=2
+      - VAULT_DEFAULT_READ_QUORUM=1
+    volumes:
+      - vault_data:/app/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/admin/nodes"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  vault_data:
+    driver: local
