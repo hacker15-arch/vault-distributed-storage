@@ -8,7 +8,7 @@ env/
 venv/
 
 # Storage data (generated at runtime)
-storage/
+/storage/
 
 # Pytest / coverage
 .pytest_cache/
