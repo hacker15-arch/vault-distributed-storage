@@ -99,6 +99,29 @@ def test_list_objects(client: TestClient):
     assert "file2.bin" in names
 
 
+def test_user_objects_are_isolated(client: TestClient):
+    """Different users should only see their own uploaded objects."""
+    user_a = "user_a"
+    user_b = "user_b"
+
+    client.put(f"/objects/shared.txt?user_id={user_a}", content=b"from-user-a")
+    client.put(f"/objects/shared.txt?user_id={user_b}", content=b"from-user-b")
+
+    user_a_objects = client.get(f"/objects?user_id={user_a}")
+    assert user_a_objects.status_code == 200
+    user_a_names = {item["object_name"] for item in user_a_objects.json()["objects"]}
+    assert user_a_names == {"shared.txt"}
+
+    user_b_objects = client.get(f"/objects?user_id={user_b}")
+    assert user_b_objects.status_code == 200
+    user_b_names = {item["object_name"] for item in user_b_objects.json()["objects"]}
+    assert user_b_names == {"shared.txt"}
+
+    # Each user should only see their own file even when filenames collide.
+    assert client.get(f"/objects/shared.txt?user_id={user_a}").content == b"from-user-a"
+    assert client.get(f"/objects/shared.txt?user_id={user_b}").content == b"from-user-b"
+
+
 def test_nested_path_object(client: TestClient):
     """Test uploading and retrieving objects with nested directory paths."""
     object_name = "documents/reports/2026/quarter1.pdf"

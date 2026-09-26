@@ -1,6 +1,37 @@
 import React, { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext(null);
+const USERS_KEY = 'vault_users';
+
+function readUsers() {
+  try {
+    const saved = localStorage.getItem(USERS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function createUserRecord(name, email, role) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const existing = readUsers().find((entry) => entry.email === cleanEmail);
+  if (existing) {
+    return existing;
+  }
+
+  const userObj = {
+    id: `usr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    name: name || 'Valued User',
+    email: cleanEmail,
+    role,
+    token: `jwt_mock_token_${Date.now()}`,
+  };
+
+  const users = readUsers();
+  users.push(userObj);
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  return userObj;
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
@@ -13,8 +44,7 @@ export function AuthProvider({ children }) {
 
   const login = (email, password) => {
     const cleanEmail = (email || '').trim().toLowerCase();
-    
-    // Dedicated Single Admin Credentials Check
+
     let role = 'user';
     let name = cleanEmail.split('@')[0];
     name = name.charAt(0).toUpperCase() + name.slice(1);
@@ -26,14 +56,7 @@ export function AuthProvider({ children }) {
       throw new Error('Invalid admin password. Default admin password is: admin');
     }
 
-    const userObj = {
-      id: 'usr_' + Date.now(),
-      name: name || 'Valued User',
-      email: cleanEmail,
-      role: role,
-      token: 'jwt_mock_token_' + Date.now(),
-    };
-
+    const userObj = createUserRecord(name, cleanEmail, role);
     setUser(userObj);
     localStorage.setItem('vault_user', JSON.stringify(userObj));
     return userObj;
@@ -41,16 +64,7 @@ export function AuthProvider({ children }) {
 
   const register = (name, email, password) => {
     const cleanEmail = (email || '').trim().toLowerCase();
-    
-    // Public registration ALWAYS creates a regular user
-    const userObj = {
-      id: 'usr_' + Date.now(),
-      name: name || 'Valued User',
-      email: cleanEmail,
-      role: 'user',
-      token: 'jwt_mock_token_' + Date.now(),
-    };
-
+    const userObj = createUserRecord(name, cleanEmail, 'user');
     setUser(userObj);
     localStorage.setItem('vault_user', JSON.stringify(userObj));
     return userObj;

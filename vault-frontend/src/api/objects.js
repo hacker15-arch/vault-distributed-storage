@@ -1,14 +1,32 @@
 import apiClient from './client';
 
-export const listObjects = () => apiClient.get('/objects');
-export const getObjectMetadata = (objectName) => apiClient.get(`/objects/${objectName}/metadata`);
-export const getObjectVersions = (objectName) => apiClient.get(`/objects/${objectName}/versions`);
-export const verifyObjectIntegrity = (objectName, version) => {
-  const url = version ? `/objects/${objectName}/verify?version=${version}` : `/objects/${objectName}/verify`;
-  return apiClient.get(url);
+const getCurrentUserId = () => {
+  try {
+    const saved = localStorage.getItem('vault_user');
+    if (!saved) return null;
+    const user = JSON.parse(saved);
+    return user?.id || null;
+  } catch (error) {
+    return null;
+  }
 };
 
-export const deleteObject = (objectName) => apiClient.delete(`/objects/${objectName}`);
+const withUserScope = (params = {}) => {
+  const userId = getCurrentUserId();
+  if (!userId) return params;
+  return { ...params, user_id: userId };
+};
+
+export const listObjects = () => apiClient.get('/objects', { params: withUserScope() });
+export const getObjectMetadata = (objectName) => apiClient.get(`/objects/${objectName}/metadata`, { params: withUserScope() });
+export const getObjectVersions = (objectName) => apiClient.get(`/objects/${objectName}/versions`, { params: withUserScope() });
+export const verifyObjectIntegrity = (objectName, version) => {
+  const params = withUserScope(version ? { version } : {});
+  const url = `/objects/${objectName}/verify`;
+  return apiClient.get(url, { params });
+};
+
+export const deleteObject = (objectName) => apiClient.delete(`/objects/${objectName}`, { params: withUserScope() });
 
 export const uploadObject = (objectName, fileOrBuffer, onUploadProgress) => {
   const config = {
@@ -16,11 +34,17 @@ export const uploadObject = (objectName, fileOrBuffer, onUploadProgress) => {
       'Content-Type': fileOrBuffer.type || 'application/octet-stream',
     },
     onUploadProgress,
+    params: withUserScope(),
   };
   return apiClient.put(`/objects/${objectName}`, fileOrBuffer, config);
 };
 
 export const downloadObjectUrl = (objectName, version) => {
   const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  return version ? `${baseURL}/objects/${objectName}?version=${version}` : `${baseURL}/objects/${objectName}`;
+  const userId = getCurrentUserId();
+  const params = new URLSearchParams();
+  if (userId) params.set('user_id', userId);
+  if (version) params.set('version', String(version));
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return `${baseURL}/objects/${objectName}${suffix}`;
 };
